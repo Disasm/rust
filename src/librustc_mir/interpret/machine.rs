@@ -11,7 +11,8 @@ use rustc::ty::{self, query::TyCtxtAt};
 
 use super::{
     Allocation, AllocId, InterpResult, Scalar, AllocationExtra,
-    InterpretCx, PlaceTy, OpTy, ImmTy, MemoryKind, Pointer, Memory
+    InterpretCx, PlaceTy, OpTy, ImmTy, MemoryKind, Pointer,
+    InterpErrorInfo, InterpError
 };
 
 /// Whether this kind of memory is allowed to leak
@@ -177,7 +178,7 @@ pub trait Machine<'mir, 'tcx>: Sized {
         id: AllocId,
         alloc: Cow<'b, Allocation>,
         kind: Option<MemoryKind<Self::MemoryKinds>>,
-        memory: &Memory<'mir, 'tcx, Self>,
+        memory_extra: &Self::MemoryExtra,
     ) -> (Cow<'b, Allocation<Self::PointerTag, Self::AllocExtra>>, Self::PointerTag);
 
     /// Return the "base" tag for the given static allocation: the one that is used for direct
@@ -187,7 +188,7 @@ pub trait Machine<'mir, 'tcx>: Sized {
     /// for cyclic statics!
     fn tag_static_base_pointer(
         id: AllocId,
-        memory: &Memory<'mir, 'tcx, Self>,
+        memory_extra: &Self::MemoryExtra,
     ) -> Self::PointerTag;
 
     /// Executes a retagging operation
@@ -211,19 +212,19 @@ pub trait Machine<'mir, 'tcx>: Sized {
 
     fn int_to_ptr(
         int: u64,
-        _mem: &Memory<'mir, 'tcx, Self>,
+        _extra: &Self::MemoryExtra,
     ) -> InterpResult<'tcx, Pointer<Self::PointerTag>> {
         if int == 0 {
-            err!(InvalidNullPointerUsage)
+            Err(InterpErrorInfo::from(InterpError::InvalidNullPointerUsage))
         } else {
-            err!(ReadBytesAsPointer)
+            Err(InterpErrorInfo::from(InterpError::ReadBytesAsPointer))
         }
     }
 
     fn ptr_to_int(
         _ptr: Pointer<Self::PointerTag>,
-        _mem: &Memory<'mir, 'tcx, Self>,
+        _extra: &Self::MemoryExtra,
     ) -> InterpResult<'tcx, u64> {
-        err!(ReadPointerAsBytes)
+        Err(InterpErrorInfo::from(InterpError::ReadPointerAsBytes))
     }
 }
